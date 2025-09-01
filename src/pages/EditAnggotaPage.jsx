@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { User, ChevronDown, Scan, X } from 'lucide-react';
-import { members as dummyMembers } from '../data/dummyMembers'; // Mengimpor data dummy
+import { User, ChevronDown, Scan, X, AlertTriangle, CheckCircle } from 'lucide-react';
+import dataStore from '../data/dataStore';
+import { safeTrim, compareValues } from '../utils/utils';
 
 export default function EditAnggota() {
     const navigate = useNavigate();
@@ -13,15 +14,71 @@ export default function EditAnggota() {
         idRfid: ''
     });
 
+    const [originalData, setOriginalData] = useState({});
+    const [errors, setErrors] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
+    const [showAlert, setShowAlert] = useState({ show: false, message: '', type: '' });
+
     useEffect(() => {
-        const memberToEdit = dummyMembers.find(member => member.id === parseInt(id));
+        const memberToEdit = dataStore.getMemberById(id);
         if (memberToEdit) {
-            setFormData(memberToEdit);
+            // Ensure all fields are strings
+            const safeData = {
+                nama: memberToEdit.nama || '',
+                nim: memberToEdit.nim || '',
+                idRfid: memberToEdit.idRfid || ''
+            };
+            setFormData(safeData);
+            setOriginalData(safeData);
         } else {
-            console.error("Member not found!");
-            navigate('/anggota'); // Arahkan kembali jika anggota tidak ditemukan
+            showNotification("Anggota tidak ditemukan!", 'error');
+            setTimeout(() => navigate('/anggota'), 2000);
         }
     }, [id, navigate]);
+
+    const showNotification = (message, type = 'success') => {
+        setShowAlert({ show: true, message, type });
+        setTimeout(() => {
+            setShowAlert({ show: false, message: '', type: '' });
+        }, 3000);
+    };
+
+    const validateForm = () => {
+        const newErrors = {};
+
+        // Validasi nama
+        const namaValue = safeTrim(formData.nama);
+        if (!namaValue) {
+            newErrors.nama = 'Nama wajib diisi';
+        } else if (namaValue.length < 2) {
+            newErrors.nama = 'Nama minimal 2 karakter';
+        }
+
+        // Validasi NIM
+        const nimValue = safeTrim(formData.nim);
+        if (!nimValue) {
+            newErrors.nim = 'NIM wajib diisi';
+        } else if (!/^\d+$/.test(nimValue)) {
+            newErrors.nim = 'NIM hanya boleh berisi angka';
+        } else if (nimValue.length < 6) {
+            newErrors.nim = 'NIM minimal 6 digit';
+        } else if (dataStore.isNimExists(nimValue, parseInt(id))) {
+            newErrors.nim = 'NIM sudah terdaftar oleh anggota lain';
+        }
+
+        // Validasi RFID
+        const rfidValue = safeTrim(formData.idRfid);
+        if (!rfidValue) {
+            newErrors.idRfid = 'ID RFID wajib diisi';
+        } else if (rfidValue.length < 4) {
+            newErrors.idRfid = 'ID RFID minimal 4 karakter';
+        } else if (dataStore.isRfidExists(rfidValue, parseInt(id))) {
+            newErrors.idRfid = 'ID RFID sudah terdaftar oleh anggota lain';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -29,32 +86,115 @@ export default function EditAnggota() {
             ...prev,
             [name]: value
         }));
+
+        // Clear error untuk field yang sedang diubah
+        if (errors[name]) {
+            setErrors(prev => ({
+                ...prev,
+                [name]: ''
+            }));
+        }
     };
 
     const handleScan = () => {
-        console.log('Scanning RFID...');
-        setFormData(prev => ({
-            ...prev,
-            idRfid: 'RF' + Math.random().toString(36).substr(2, 6).toUpperCase()
-        }));
+        setIsLoading(true);
+        
+        // Simulate scanning delay
+        setTimeout(() => {
+            const newRfid = dataStore.generateRfidId();
+            setFormData(prev => ({
+                ...prev,
+                idRfid: newRfid
+            }));
+            
+            // Clear RFID error jika ada
+            if (errors.idRfid) {
+                setErrors(prev => ({
+                    ...prev,
+                    idRfid: ''
+                }));
+            }
+            
+            setIsLoading(false);
+            showNotification('RFID berhasil di-scan!', 'success');
+        }, 1500);
     };
 
     const handleCancel = () => {
-        setFormData({ nama: '', nim: '', idRfid: '' });
+        // Reset ke data original
+        setFormData(originalData);
+        setErrors({});
         navigate('/anggota');
     };
 
     const handleSave = () => {
-        if (!formData.nama || !formData.nim || !formData.idRfid) {
-            alert('Mohon lengkapi semua field');
+        if (!validateForm()) {
+            showNotification('Mohon perbaiki kesalahan pada form', 'error');
             return;
         }
-        console.log('Saving member:', formData);
-        navigate('/anggota'); // Arahkan kembali ke halaman anggota setelah simpan
+
+        // Check if data has changed
+        const hasChanges = Object.keys(formData).some(key => {
+            return !compareValues(formData[key], originalData[key]);
+        });
+
+        if (!hasChanges) {
+            showNotification('Tidak ada perubahan data', 'error');
+            return;
+        }
+
+        setIsLoading(true);
+
+        // Simulate save delay
+        setTimeout(() => {
+            try {
+                const updatedMember = dataStore.updateMember(parseInt(id), {
+                    nama: safeTrim(formData.nama),
+                    nim: safeTrim(formData.nim),
+                    idRfid: safeTrim(formData.idRfid)
+                });
+
+                if (updatedMember) {
+                    showNotification(`Data anggota "${updatedMember.nama}" berhasil diperbarui!`, 'success');
+                    
+                    setTimeout(() => {
+                        navigate('/anggota');
+                    }, 1500);
+                } else {
+                    showNotification('Gagal memperbarui data anggota', 'error');
+                }
+            } catch (error) {
+                showNotification('Gagal memperbarui data anggota', error.message || 'error');
+            } finally {
+                setIsLoading(false);
+            }
+        }, 1000);
     };
+
+    const hasChanges = Object.keys(formData).some(key => {
+        return !compareValues(formData[key], originalData[key]);
+    });
 
     return (
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+            {/* Alert Notification */}
+            {showAlert.show && (
+                <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border-l-4 ${
+                    showAlert.type === 'success' 
+                        ? 'bg-green-50 border-green-400 text-green-800' 
+                        : 'bg-red-50 border-red-400 text-red-800'
+                }`}>
+                    <div className="flex items-center">
+                        {showAlert.type === 'success' ? (
+                            <CheckCircle size={20} className="mr-2" />
+                        ) : (
+                            <AlertTriangle size={20} className="mr-2" />
+                        )}
+                        <span className="font-medium">{showAlert.message}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
                 <div>
@@ -72,58 +212,95 @@ export default function EditAnggota() {
 
             {/* Form Card */}
             <section className="bg-white rounded-xl p-6 shadow-md max-w-2xl w-full mx-auto">
+                {/* Change Indicator */}
+                {hasChanges && (
+                    <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center">
+                            <AlertTriangle size={16} className="text-yellow-600 mr-2" />
+                            <span className="text-sm text-yellow-800 font-medium">
+                                Ada perubahan yang belum disimpan
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 <div className="space-y-6">
                     {/* Nama */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <label className="text-gray-700 font-medium w-24 flex-shrink-0">
-                            Nama
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                        <label className="text-gray-700 font-medium w-24 flex-shrink-0 pt-2">
+                            Nama <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="text"
-                            name="nama"
-                            value={formData.nama}
-                            onChange={handleInputChange}
-                            placeholder="Masukkan nama"
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
-                        />
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                name="nama"
+                                value={formData.nama}
+                                onChange={handleInputChange}
+                                placeholder="Masukkan nama lengkap"
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-1 focus:ring-orange-500 text-sm ${
+                                    errors.nama ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'
+                                }`}
+                            />
+                            {errors.nama && (
+                                <p className="text-red-500 text-xs mt-1">{errors.nama}</p>
+                            )}
+                        </div>
                     </div>
 
                     {/* NIM */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <label className="text-gray-700 font-medium w-24 flex-shrink-0">
-                            NIM
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                        <label className="text-gray-700 font-medium w-24 flex-shrink-0 pt-2">
+                            NIM <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="text"
-                            name="nim"
-                            value={formData.nim}
-                            onChange={handleInputChange}
-                            placeholder="Masukkan NIM"
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
-                        />
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                name="nim"
+                                value={formData.nim}
+                                onChange={handleInputChange}
+                                placeholder="Masukkan NIM (contoh: 210511001)"
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-1 focus:ring-orange-500 text-sm ${
+                                    errors.nim ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'
+                                }`}
+                            />
+                            {errors.nim && (
+                                <p className="text-red-500 text-xs mt-1">{errors.nim}</p>
+                            )}
+                        </div>
                     </div>
 
                     {/* RFID */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <label className="text-gray-700 font-medium w-24 flex-shrink-0">
-                            ID RFID
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                        <label className="text-gray-700 font-medium w-24 flex-shrink-0 pt-2">
+                            ID RFID <span className="text-red-500">*</span>
                         </label>
-                        <div className="flex-1 flex gap-2">
-                            <input
-                                type="text"
-                                name="idRfid"
-                                value={formData.idRfid}
-                                onChange={handleInputChange}
-                                placeholder="Scan atau input ID RFID"
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
-                            />
-                            <button
-                                onClick={handleScan}
-                                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors font-medium text-sm"
-                            >
-                                <Scan className="w-4 h-4" />
-                                <span>Scan</span>
-                            </button>
+                        <div className="flex-1">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    name="idRfid"
+                                    value={formData.idRfid}
+                                    onChange={handleInputChange}
+                                    placeholder="Scan atau input ID RFID"
+                                    className={`flex-1 px-4 py-2 border rounded-lg focus:ring-1 focus:ring-orange-500 text-sm ${
+                                        errors.idRfid ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'
+                                    }`}
+                                />
+                                <button
+                                    onClick={handleScan}
+                                    disabled={isLoading}
+                                    className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors font-medium text-sm"
+                                >
+                                    <Scan className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                    <span>{isLoading ? 'Scanning...' : 'Scan'}</span>
+                                </button>
+                            </div>
+                            {errors.idRfid && (
+                                <p className="text-red-500 text-xs mt-1">{errors.idRfid}</p>
+                            )}
+                            <p className="text-gray-500 text-xs mt-1">
+                                ID RFID harus unik untuk setiap anggota
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -132,16 +309,18 @@ export default function EditAnggota() {
                 <div className="flex justify-end gap-3 mt-8">
                     <button
                         onClick={handleCancel}
-                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-6 py-2 rounded-lg flex items-center space-x-2 transition-colors font-medium"
+                        disabled={isLoading}
+                        className="bg-white hover:bg-gray-50 disabled:bg-gray-100 text-gray-700 border border-gray-300 px-6 py-2 rounded-lg flex items-center space-x-2 transition-colors font-medium"
                     >
                         <X className="w-4 h-4" />
                         <span>Batal</span>
                     </button>
                     <button
                         onClick={handleSave}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg transition-colors font-medium"
+                        disabled={isLoading || !hasChanges}
+                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-6 py-2 rounded-lg transition-colors font-medium"
                     >
-                        Simpan
+                        {isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
                     </button>
                 </div>
             </section>

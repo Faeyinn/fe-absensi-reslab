@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Edit, Trash2, ChevronLeft, ChevronRight, User, ChevronDown } from 'lucide-react';
+import { members as dummyMembers } from '../data/dummyMembers';
 
 export default function AnggotaPage() {
     const navigate = useNavigate();
@@ -8,16 +9,10 @@ export default function AnggotaPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
-    const members = [
-        { id: 1, nama: 'Rahmat Fajar Saputra', nim: '2311512038', idRfid: 'ID123456' },
-        { id: 2, nama: 'NursyaBani', nim: '2311511007', idRfid: 'ID234567' },
-        { id: 3, nama: 'Asyifa Putri Romansha', nim: '2211511009', idRfid: 'ID345678' },
-        { id: 4, nama: 'Hanaviz', nim: '2311512022', idRfid: 'ID456789' },
-        { id: 5, nama: 'Muhammad Fajri', nim: '2211512027', idRfid: 'ID567890' },
-    ];
-
     const itemsPerPage = 5;
-    const filteredMembers = members.filter(member =>
+
+    // Filter data berdasarkan search term
+    const filteredMembers = dummyMembers.filter(member =>
         member.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.nim.includes(searchTerm) ||
         member.idRfid.toLowerCase().includes(searchTerm.toLowerCase())
@@ -29,12 +24,14 @@ export default function AnggotaPage() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentMembers = filteredMembers.slice(startIndex, startIndex + itemsPerPage);
 
-    const handleEdit = (member) => console.log('Edit member:', member);
+    const handleEdit = (member) => {
+        navigate(`/anggota/edit-anggota/${member.id}`);
+    };
     const handleDelete = (member) => console.log('Delete member:', member);
     const handleAddMember = (e) => {
-        e.preventDefault()
-        navigate('/anggota/tambah-anggota')
-    }
+        e.preventDefault();
+        navigate('/anggota/tambah-anggota');
+    };
 
     const goToPage = (page) => {
         if (page >= 1 && page <= totalPages) {
@@ -67,7 +64,10 @@ export default function AnggotaPage() {
                         type="text"
                         placeholder="Cari Nama / NIM / ID RFID"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1); // Reset halaman ke 1 saat mencari
+                        }}
                         className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
                     />
                 </div>
@@ -93,32 +93,33 @@ export default function AnggotaPage() {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {currentMembers.map((member) => (
-                                <tr key={member.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{member.nama}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{member.nim}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{member.idRfid}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <div className="flex space-x-2">
-                                            <button
-                                                onClick={() => handleEdit(member)}
-                                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs flex items-center space-x-1 transition-colors font-semibold"
-                                            >
-                                                <Edit className="w-3 h-3" />
-                                                <span>Edit</span>
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(member)}
-                                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs flex items-center space-x-1 transition-colors font-semibold"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                                <span>Hapus</span>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {currentMembers.length === 0 && (
+                            {currentMembers.length > 0 ? (
+                                currentMembers.map((member) => (
+                                    <tr key={member.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{member.nama}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{member.nim}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{member.idRfid}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <div className="flex space-x-2">
+                                                <button
+                                                    onClick={() => handleEdit(member)}
+                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs flex items-center space-x-1 transition-colors font-semibold"
+                                                >
+                                                    <Edit className="w-3 h-3" />
+                                                    <span>Edit</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(member)}
+                                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs flex items-center space-x-1 transition-colors font-semibold"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                    <span>Hapus</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
                                 <tr>
                                     <td colSpan="4" className="text-center py-6 text-gray-500">Tidak ada data ditemukan</td>
                                 </tr>
@@ -130,49 +131,34 @@ export default function AnggotaPage() {
                 {/* Pagination */}
                 <div className="flex justify-between items-center mt-4">
                     <div className="text-sm text-gray-500">
-                        Showing 1-15 of 30 List
+                        Menampilkan {startIndex + 1} sampai {Math.min(startIndex + itemsPerPage, totalItems)} dari {totalItems} Anggota
                     </div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                        <a
-                            href="#"
-                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                         >
                             <ChevronLeft size={16} /> Prev
-                        </a>
-                        <a
-                            href="#"
-                            aria-current="page"
-                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-semibold text-white bg-orange-500"
-                        >
-                            1
-                        </a>
-                        <a
-                            href="#"
-                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                            2
-                        </a>
-                        <a
-                            href="#"
-                            className="hidden md:inline-flex relative items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                            ...
-                        </a>
-                        <a
-                            href="#"
-                            className="hidden md:inline-flex relative items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                            5
-                        </a>
-                        <a
-                            href="#"
-                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        </button>
+                        {Array.from({ length: totalPages }, (_, index) => (
+                            <button
+                                key={index}
+                                onClick={() => goToPage(index + 1)}
+                                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium ${index + 1 === currentPage ? 'text-white bg-orange-500 font-semibold' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                            >
+                                {index + 1}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                         >
                             Next <ChevronRight size={16} />
-                        </a>
+                        </button>
                     </nav>
                 </div>
-
             </section>
         </main>
     );

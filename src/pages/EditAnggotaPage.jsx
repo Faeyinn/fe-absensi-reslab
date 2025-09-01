@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { User, ChevronDown, Scan, X } from 'lucide-react';
+import { members as dummyMembers } from '../data/dummyMembers'; // Mengimpor data dummy
 
 export default function EditAnggota() {
     const navigate = useNavigate();
+    const { id } = useParams();
 
     const [formData, setFormData] = useState({
         nama: '',
         nim: '',
         idRfid: ''
     });
+
+    useEffect(() => {
+        const memberToEdit = dummyMembers.find(member => member.id === parseInt(id));
+        if (memberToEdit) {
+            setFormData(memberToEdit);
+        } else {
+            console.error("Member not found!");
+            navigate('/anggota'); // Arahkan kembali jika anggota tidak ditemukan
+        }
+    }, [id, navigate]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -38,7 +50,7 @@ export default function EditAnggota() {
             return;
         }
         console.log('Saving member:', formData);
-        // simpan data
+        navigate('/anggota'); // Arahkan kembali ke halaman anggota setelah simpan
     };
 
     return (

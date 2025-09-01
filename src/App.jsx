@@ -19,7 +19,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/anggota" element={<AnggotaPage />} />
         <Route path="/anggota/tambah-anggota" element={<TambahAnggota />} />
-        <Route path="/anggota/edit-anggota" element={<EditAnggota />} />
+        <Route path="/anggota/edit-anggota/:id" element={<EditAnggota />} />
         <Route path="/absensi" element={<AbsensiPage />} />
         <Route path="/laporan" element={<LaporanPage />} />
       </Route>
